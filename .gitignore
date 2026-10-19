@@ -1,0 +1,22 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Tests and coverage
+*.test
+*.out
+coverage.out
+
+# Go workspace
+vendor/
+
+# Editor and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
