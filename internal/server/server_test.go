@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
 	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
@@ -116,24 +118,55 @@ func connect(t *testing.T, srv *mcp.Server) *mcp.ClientSession {
 	return session
 }
 
+func TestNewRegistersGitTools(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, New(quiet(Options{})))
+	listed, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("ListTools() error = %v", err)
+	}
+	got := make([]string, 0, len(listed.Tools))
+	for _, tool := range listed.Tools {
+		got = append(got, tool.Name)
+	}
+	slices.Sort(got)
+	want := []string{
+		git.ToolCreateBranch,
+		git.ToolDiffSummary,
+		git.ToolStageAndCommit,
+		git.ToolStatus,
+		ping.ToolName,
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("tools = %v, want %v", got, want)
+	}
+}
+
 func mustPingTool(t *testing.T, session *mcp.ClientSession) *mcp.Tool {
+	t.Helper()
+
+	tool := mustTool(t, session, ping.ToolName)
+	if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+		t.Fatal("ping is not marked read-only")
+	}
+	return tool
+}
+
+func mustTool(t *testing.T, session *mcp.ClientSession, name string) *mcp.Tool {
 	t.Helper()
 
 	listed, err := session.ListTools(t.Context(), nil)
 	if err != nil {
 		t.Fatalf("ListTools() error = %v", err)
 	}
-	if len(listed.Tools) != 1 {
-		t.Fatalf("tool count = %d, want 1", len(listed.Tools))
+	for _, tool := range listed.Tools {
+		if tool.Name == name {
+			return tool
+		}
 	}
-	tool := listed.Tools[0]
-	if tool.Name != ping.ToolName {
-		t.Fatalf("tool name = %q, want %q", tool.Name, ping.ToolName)
-	}
-	if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
-		t.Fatal("ping is not marked read-only")
-	}
-	return tool
+	t.Fatalf("tool %q is not registered", name)
+	return nil
 }
 
 func decodePing(t *testing.T, res *mcp.CallToolResult) ping.Result {
