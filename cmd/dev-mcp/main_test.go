@@ -12,6 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
 	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
@@ -59,6 +60,37 @@ func TestBinaryPingOverStdio(t *testing.T) {
 	want := ping.Result{Status: "ok", Name: version.Name, Version: version.Version}
 	if got != want {
 		t.Fatalf("ping = %+v, want %+v\nstderr: %s", got, want, stderr.String())
+	}
+
+	repo := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	initRepo := exec.CommandContext(ctx, "git", "init", "-b", "main")
+	initRepo.Dir = repo
+	if out, err := initRepo.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	statusRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      git.ToolStatus,
+		Arguments: git.StatusArgs{Path: repo},
+	})
+	if err != nil {
+		t.Fatalf("git_status error = %v\nstderr: %s", err, stderr.String())
+	}
+	if statusRes.IsError {
+		t.Fatalf("git_status tool error: %+v\nstderr: %s", statusRes.Content, stderr.String())
+	}
+	statusData, err := json.Marshal(statusRes.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal git_status: %v", err)
+	}
+	var status git.StatusResult
+	if err := json.Unmarshal(statusData, &status); err != nil {
+		t.Fatalf("unmarshal git_status: %v", err)
+	}
+	if status.Branch != "main" || !status.Clean {
+		t.Fatalf("git_status = %+v\nstderr: %s", status, stderr.String())
 	}
 	// Close while ctx is still active so the child can leave stdio and exit 0.
 	if err := session.Close(); err != nil {

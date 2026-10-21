@@ -12,13 +12,17 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
 	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
 
 const instructions = `dev-mcp is a local developer automation server.
-The ping tool reports the server name, version, and health.
-Write logs to stderr only. stdout carries JSON-RPC.`
+ping reports the server name, version, and health.
+git_status and git_diff_summary read a local git working tree.
+git_create_branch creates a local branch.
+git_stage_and_commit stages selected changes and commits them.
+These tools never invoke a shell. Write logs to stderr only. stdout carries JSON-RPC.`
 
 // Options configures a server. Zero values use the version package identity
 // and a logger that writes to stderr.
@@ -48,6 +52,7 @@ func New(opts Options) *mcp.Server {
 		Logger:       opts.Logger,
 	})
 	ping.Register(s, ping.Handler{Name: opts.Name, Version: opts.Version})
+	git.Register(s)
 	return s
 }
 
