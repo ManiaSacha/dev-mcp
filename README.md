@@ -4,6 +4,10 @@
 
 The process is CGO-free. Logs go to stderr so they never mix with the protocol stream on stdout.
 
+![dev-mcp at a glance. An MCP client talks to one Go binary over stdio. The binary exposes ping and four git tools, and it runs git directly with no shell.](docs/dev-mcp-infographic.jpg)
+
+JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a shell string, and commit paths stay inside the repository.
+
 ## Status
 
 | Step | Scope | State |
@@ -157,6 +161,7 @@ dev-mcp/
 │   │   └── docker/        # placeholder
 │   ├── redaction/         # placeholder
 │   └── version/           # name and version advertised to clients
+├── docs/                  # README infographic
 ├── .github/workflows/     # go test -race and golangci-lint
 ├── go.mod
 └── README.md
