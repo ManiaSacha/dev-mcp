@@ -12,6 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/tools/docker"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/logs"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
@@ -25,6 +26,7 @@ git_create_branch creates a local branch.
 git_stage_and_commit stages selected changes and commits them.
 logs_tail and logs_search read a local log file and mask secrets.
 logs_redact masks secrets in text.
+docker_info, docker_ps, docker_health, and docker_logs read the local Docker daemon.
 These tools never invoke a shell. Write logs to stderr only. stdout carries JSON-RPC.`
 
 // Options configures a server. Zero values use the version package identity
@@ -57,6 +59,7 @@ func New(opts Options) *mcp.Server {
 	ping.Register(s, ping.Handler{Name: opts.Name, Version: opts.Version})
 	git.Register(s)
 	logs.Register(s)
+	docker.Register(s)
 	return s
 }
 

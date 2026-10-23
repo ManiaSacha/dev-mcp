@@ -1,6 +1,6 @@
 # dev-mcp
 
-`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds log capture and redaction on top of the git tools and the `ping` health check.
+`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds read-only Docker health tools on top of log redaction, the git tools, and the `ping` health check.
 
 The process is CGO-free. Logs go to stderr so they never mix with the protocol stream on stdout.
 
@@ -14,8 +14,8 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 | --- | --- | --- |
 | 1 | Project scaffolding, stdio server, `ping` | done |
 | 2 | Git workflow tools | done |
-| 3 | Log capture and redaction | current |
-| 4 | Docker and container health | not started |
+| 3 | Log capture and redaction | done |
+| 4 | Docker and container health | current |
 | 5 | Database schema and migrations | not started |
 | 6 | Packaging, release config, final docs | not started |
 
@@ -23,6 +23,7 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 
 - Go 1.27 or newer
 - `git` on `PATH` for the git tools. `ping` still runs when git is absent; those tools return an error instead.
+- `docker` on `PATH`, and a reachable daemon, for the Docker tools. The other tools still run when Docker is absent.
 
 ## Quickstart
 
@@ -114,6 +115,22 @@ Masks secrets in text the caller supplies. The text is not written to disk. The 
 
 Recognized secrets include passwords and token assignments, `user:password` URLs, `Authorization: Bearer` and `Authorization: Basic` values, private key blocks, and common token shapes from GitHub, Slack, AWS, Stripe, Google, OpenAI, and JWTs. The replacement text is `[REDACTED]`.
 
+### `docker_info`
+
+Read-only check of the local Docker client and daemon. It uses the Docker context of the server process. The result reports `status`, `clientVersion`, `serverVersion`, `apiVersion`, `os`, and `arch`.
+
+### `docker_ps`
+
+Lists containers, including stopped ones. `state` is optional and must be `created`, `restarting`, `running`, `paused`, `exited`, or `dead`. `name` is an optional literal substring matched after Docker returns. Each container includes `id`, `name`, `image`, `state`, `status`, and `health` when the status text reports a health check.
+
+### `docker_health`
+
+Reads one container's status, restart count, and the last five health-check results. `container` is a name or id. It must not start with `-`. Check output is redacted. Environment variables, mounts, and the rest of `docker inspect` are not returned. `health` is `none` when the container has no health check.
+
+### `docker_logs`
+
+Returns a redacted tail of one container's logs. `lines` defaults to 100 and cannot exceed 1000. The call does not follow the stream. Stdout lines are listed before stderr lines. `timestamps` prefixes each Docker line with its timestamp when true.
+
 ## Client configuration
 
 Use the absolute path to the binary you built. The snippets below assume that path.
@@ -158,14 +175,18 @@ flowchart LR
   gittools["internal/tools/git"]
   logtools["internal/tools/logs"]
   redact["internal/redaction"]
+  dockertools["internal/tools/docker"]
 
   client -->|"stdio JSON-RPC"| main
   main --> server
   server --> ping
   server --> gittools
   server --> logtools
+  server --> dockertools
   gittools -->|"exec git, no shell"| gitbin["git"]
   logtools --> redact
+  dockertools -->|"exec docker, no shell"| dockerd["docker"]
+  dockertools --> redact
 ```
 
 ```text
@@ -177,8 +198,8 @@ dev-mcp/
 │   │   ├── ping/          # health tool
 │   │   ├── git/           # status, diff summary, branch, commit
 │   │   ├── logs/          # tail, search, and redact
-│   │   ├── db/            # placeholder
-│   │   └── docker/        # placeholder
+│   │   ├── docker/        # daemon, containers, health, logs
+│   │   └── db/            # placeholder
 │   ├── redaction/         # secret masking for log text
 │   └── version/           # name and version advertised to clients
 ├── docs/                  # README infographic
@@ -187,7 +208,7 @@ dev-mcp/
 └── README.md
 ```
 
-`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process. Log tools read regular files and pass every returned line through `internal/redaction`.
+`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process. Log tools read regular files and pass every returned line through `internal/redaction`. Docker tools run `docker` with `exec.CommandContext` and redact health-check output and container logs the same way.
 
 ## Development
 
@@ -212,5 +233,7 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - `logs_tail` and `logs_search` open a regular file. They do not start a program. A file larger than 8 MiB is read from the end only.
 - Log text returned to the client passes through the redaction engine. Assignments, credential URLs, authorization headers, private keys, and common token shapes are replaced with `[REDACTED]`.
 - `logs_search` treats the query as literal text.
+- Docker tools do not start, stop, or remove containers. Container names that start with `-` are rejected. `docker_ps` only forwards a state from a fixed list.
+- `docker_health` returns status and health-check output. It does not return environment variables or mounts. Log and health text is redacted.
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
