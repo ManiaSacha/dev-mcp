@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/tools/db"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/docker"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/logs"
@@ -134,6 +135,8 @@ func TestNewRegistersGitTools(t *testing.T) {
 	}
 	slices.Sort(got)
 	want := []string{
+		db.ToolMigrations,
+		db.ToolSchema,
 		docker.ToolHealth,
 		docker.ToolInfo,
 		docker.ToolLogs,
