@@ -1,6 +1,6 @@
 # dev-mcp
 
-`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds read-only Docker health tools on top of log redaction, the git tools, and the `ping` health check.
+`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds read-only SQLite schema and migration status tools on top of Docker health, log redaction, the git tools, and the `ping` health check.
 
 The process is CGO-free. Logs go to stderr so they never mix with the protocol stream on stdout.
 
@@ -15,8 +15,8 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 | 1 | Project scaffolding, stdio server, `ping` | done |
 | 2 | Git workflow tools | done |
 | 3 | Log capture and redaction | done |
-| 4 | Docker and container health | current |
-| 5 | Database schema and migrations | not started |
+| 4 | Docker and container health | done |
+| 5 | Database schema and migrations | current |
 | 6 | Packaging, release config, final docs | not started |
 
 ## Requirements
@@ -24,6 +24,7 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 - Go 1.27 or newer
 - `git` on `PATH` for the git tools. `ping` still runs when git is absent; those tools return an error instead.
 - `docker` on `PATH`, and a reachable daemon, for the Docker tools. The other tools still run when Docker is absent.
+- A SQLite file for `db_schema` and `db_migrations`. Those tools use the CGO-free driver built into the binary. They do not need a database CLI.
 
 ## Quickstart
 
@@ -131,6 +132,40 @@ Reads one container's status, restart count, and the last five health-check resu
 
 Returns a redacted tail of one container's logs. `lines` defaults to 100 and cannot exceed 1000. The call does not follow the stream. Stdout lines are listed before stderr lines. `timestamps` prefixes each Docker line with its timestamp when true.
 
+### `db_schema`
+
+Reads tables, columns, indexes, and foreign keys from a local SQLite file. `path` is the database file. The file is opened read-only. Rows are not returned, and the tool does not accept SQL.
+
+| Field | Meaning |
+| --- | --- |
+| `path` | Database file that was read |
+| `tables` | User tables, excluding `sqlite_` internal tables |
+| `tableCount` | Number of tables returned |
+| `truncated` | True when a table, column, index, or foreign-key limit was hit |
+
+Each table has `columns`, `indexes`, and `foreignKeys`. A column includes `name`, `type`, `notNull`, `primaryKey`, and a redacted `default` when one is declared. Limits are 200 tables, 200 columns, 50 indexes, and 50 foreign keys per table.
+
+### `db_migrations`
+
+Lists versioned migration filenames in one directory and, when `database` is set, reports which forward versions are not applied. SQL in the files is not read or executed. Nested directories are ignored.
+
+| Argument | Meaning |
+| --- | --- |
+| `directory` | Required directory of migration files |
+| `database` | Optional SQLite file used to compare applied versions |
+
+Recognized names are `N_name.up.sql`, `N_name.down.sql`, and `N_name.sql`. `up` and `sql` are forward migrations. `down` files are listed and are never pending.
+
+| Field | Meaning |
+| --- | --- |
+| `tracker` | `none`, `golang-migrate`, or `goose` |
+| `dirty` | True when golang-migrate recorded a failed migration at the current version |
+| `files` | Recognized filenames, ordered by version |
+| `pending` | Forward versions that are not applied |
+| `truncated` | True when more than 1000 recognized files were present |
+
+golang-migrate stores one current version in `schema_migrations`. Versions below that ceiling are applied. The ceiling version is applied only when `dirty` is false. goose stores each `version_id` in `goose_db_version`. When both tables exist, `schema_migrations` is used. With no tracker table, every forward version is pending. The tool does not apply migrations.
+
 ## Client configuration
 
 Use the absolute path to the binary you built. The snippets below assume that path.
@@ -176,6 +211,7 @@ flowchart LR
   logtools["internal/tools/logs"]
   redact["internal/redaction"]
   dockertools["internal/tools/docker"]
+  dbtools["internal/tools/db"]
 
   client -->|"stdio JSON-RPC"| main
   main --> server
@@ -183,10 +219,13 @@ flowchart LR
   server --> gittools
   server --> logtools
   server --> dockertools
+  server --> dbtools
   gittools -->|"exec git, no shell"| gitbin["git"]
   logtools --> redact
   dockertools -->|"exec docker, no shell"| dockerd["docker"]
   dockertools --> redact
+  dbtools -->|"read-only SQLite"| sqlite["sqlite file"]
+  dbtools --> redact
 ```
 
 ```text
@@ -199,7 +238,7 @@ dev-mcp/
 │   │   ├── git/           # status, diff summary, branch, commit
 │   │   ├── logs/          # tail, search, and redact
 │   │   ├── docker/        # daemon, containers, health, logs
-│   │   └── db/            # placeholder
+│   │   └── db/            # sqlite schema and migration status
 │   ├── redaction/         # secret masking for log text
 │   └── version/           # name and version advertised to clients
 ├── docs/                  # README infographic
@@ -208,7 +247,7 @@ dev-mcp/
 └── README.md
 ```
 
-`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process. Log tools read regular files and pass every returned line through `internal/redaction`. Docker tools run `docker` with `exec.CommandContext` and redact health-check output and container logs the same way.
+`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process. Log tools read regular files and pass every returned line through `internal/redaction`. Docker tools run `docker` with `exec.CommandContext` and redact health-check output and container logs the same way. Database tools open a SQLite file read-only and do not run migration SQL. Column defaults go through the same redaction engine.
 
 ## Development
 
@@ -235,5 +274,8 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - `logs_search` treats the query as literal text.
 - Docker tools do not start, stop, or remove containers. Container names that start with `-` are rejected. `docker_ps` only forwards a state from a fixed list.
 - `docker_health` returns status and health-check output. It does not return environment variables or mounts. Log and health text is redacted.
+- Database tools do not accept caller SQL and do not apply migrations. A SQLite file is opened with `mode=ro` and `PRAGMA query_only`.
+- `db_schema` returns structure only. Column defaults are redacted. Rows are not returned.
+- `db_migrations` lists filenames in one directory. It reads `schema_migrations` or `goose_db_version` when a database file is provided. When both tables exist, `schema_migrations` is used.
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
