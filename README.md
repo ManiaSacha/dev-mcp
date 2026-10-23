@@ -268,6 +268,7 @@ dev-mcp/
 ├── docs/                  # README infographic
 ├── .github/workflows/     # test, lint, and tagged releases
 ├── go.mod
+├── LICENSE
 └── README.md
 ```
 
@@ -304,3 +305,7 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
 - `--version` and `-version` print `dev-mcp` and the build version, then exit. They do not start the stdio server.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 ManiaSacha.
