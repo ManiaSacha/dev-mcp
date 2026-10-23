@@ -1,10 +1,12 @@
 # dev-mcp
 
-`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds read-only SQLite schema and migration status tools on top of Docker health, log redaction, the git tools, and the `ping` health check.
+`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). The binary is CGO-free. It exposes a health check, git workflow tools, log redaction, read-only Docker health, and read-only SQLite schema and migration status.
 
-The process is CGO-free. Logs go to stderr so they never mix with the protocol stream on stdout.
+Logs go to stderr so they never mix with the protocol stream on stdout.
 
 ![dev-mcp at a glance. An MCP client talks to one Go binary over stdio. The binary exposes ping and four git tools, and it runs git directly with no shell.](docs/dev-mcp-infographic.jpg)
+
+The figure shows the stdio process and the original git tools. Log, Docker, and database tools are documented below.
 
 JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a shell string, and commit paths stay inside the repository.
 
@@ -16,8 +18,8 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 | 2 | Git workflow tools | done |
 | 3 | Log capture and redaction | done |
 | 4 | Docker and container health | done |
-| 5 | Database schema and migrations | current |
-| 6 | Packaging, release config, final docs | not started |
+| 5 | Database schema and migrations | done |
+| 6 | Packaging, release config, final docs | done |
 
 ## Requirements
 
@@ -40,6 +42,28 @@ CGO_ENABLED=0 go build -o dev-mcp ./cmd/dev-mcp
 
 On Windows the output file is `dev-mcp.exe`. Running the binary with no arguments waits for an MCP client on stdin. Stop it with Ctrl+C.
 
+Print the version and exit before the server starts:
+
+```bash
+./dev-mcp --version
+```
+
+That line is plain text on stdout. It is not a JSON-RPC message. `-version` does the same thing.
+
+Set the version string at build time:
+
+```bash
+CGO_ENABLED=0 go build -trimpath \
+  -ldflags "-X github.com/ManiaSacha/dev-mcp/internal/version.Version=0.1.0" \
+  -o dev-mcp ./cmd/dev-mcp
+```
+
+## Releases
+
+Pushing a tag such as `v0.1.0` to this repository runs `.github/workflows/release.yml`. The workflow builds `CGO_ENABLED=0` archives for Linux, macOS, and Windows, on `amd64` and `arm64`. The version baked into those binaries is the tag with the leading `v` removed. Each archive is named `dev-mcp_<version>_<os>_<arch>` and is a `.tar.gz`, or a `.zip` on Windows. The GitHub Release also includes `checksums.txt` with SHA-256 sums.
+
+The tag must start with `v` and the remainder may contain only letters, digits, `.`, `_`, `+`, and `-`. The workflow does not run on pull requests. CI on `main` and on pull requests checks that a default build prints `dev-mcp 0.1.0`.
+
 ## Tools
 
 ### `ping`
@@ -50,7 +74,7 @@ Read-only health check. It takes no arguments and returns:
 | --- | --- |
 | `status` | `ok` when the handler ran |
 | `name` | MCP implementation name (`dev-mcp`) |
-| `version` | Server version (`0.1.0`) |
+| `version` | Server version. Source builds report `0.1.0`. A release binary reports the tag without the leading `v` |
 
 ### `git_status`
 
@@ -242,7 +266,7 @@ dev-mcp/
 │   ├── redaction/         # secret masking for log text
 │   └── version/           # name and version advertised to clients
 ├── docs/                  # README infographic
-├── .github/workflows/     # go test -race and golangci-lint
+├── .github/workflows/     # test, lint, and tagged releases
 ├── go.mod
 └── README.md
 ```
@@ -258,7 +282,7 @@ golangci-lint run ./...
 
 `go test -race` uses the race detector runtime. On Linux and Windows that runtime is built with cgo, so the machine needs a C compiler (GCC on Linux, MinGW-w64 on Windows). The `dev-mcp` binary itself is still built with `CGO_ENABLED=0`. CI provides the compiler.
 
-CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pushes to `main`.
+CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pushes to `main`. The same workflow builds a CGO-free binary and checks `dev-mcp --version`. Tagged releases are a separate workflow.
 
 ## Security notes for this revision
 
@@ -279,3 +303,4 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - `db_migrations` lists filenames in one directory. It reads `schema_migrations` or `goose_db_version` when a database file is provided. When both tables exist, `schema_migrations` is used.
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
+- `--version` and `-version` print `dev-mcp` and the build version, then exit. They do not start the stdio server.
