@@ -1,6 +1,6 @@
 # dev-mcp
 
-`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds local git workflow tools on top of the `ping` health check.
+`dev-mcp` is a single-binary [Model Context Protocol](https://modelcontextprotocol.io) server for local developer automation. It speaks JSON-RPC 2.0 on stdin/stdout through [`github.com/modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). This revision adds log capture and redaction on top of the git tools and the `ping` health check.
 
 The process is CGO-free. Logs go to stderr so they never mix with the protocol stream on stdout.
 
@@ -13,8 +13,8 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 | Step | Scope | State |
 | --- | --- | --- |
 | 1 | Project scaffolding, stdio server, `ping` | done |
-| 2 | Git workflow tools | current |
-| 3 | Log capture and redaction | not started |
+| 2 | Git workflow tools | done |
+| 3 | Log capture and redaction | current |
 | 4 | Docker and container health | not started |
 | 5 | Database schema and migrations | not started |
 | 6 | Packaging, release config, final docs | not started |
@@ -98,6 +98,22 @@ Creates one commit. It does not sign the commit. Hooks still run.
 
 One of `paths` or `all` is required. Absolute paths and paths that escape the work tree are rejected. The result reports `root`, `branch`, `detached`, `hash`, `subject`, and `files`.
 
+### `logs_tail`
+
+Reads the end of a regular log file and masks secrets before returning the lines. `path` is required. `lines` defaults to 200 and cannot exceed 2000.
+
+Files larger than 8 MiB are scanned from the end. `truncated` is true in that case, and `lineOrigin` is `window` instead of `file`. A line longer than 16 KiB is cut and marked. The result also reports `redactions` and `scannedBytes`.
+
+### `logs_search`
+
+Finds lines that contain `query` as literal text. Regular expression syntax is not interpreted. `matches` limits how many lines come back (default 100, maximum 500). `ignoreCase` compares without case when true. Matching lines are redacted. The same 8 MiB end-of-file window as `logs_tail` applies. `matchLimitReached` is true when more matches existed than the limit.
+
+### `logs_redact`
+
+Masks secrets in text the caller supplies. The text is not written to disk. The maximum input is 1 MiB. The result is `text` plus `redactions`.
+
+Recognized secrets include passwords and token assignments, `user:password` URLs, `Authorization: Bearer` and `Authorization: Basic` values, private key blocks, and common token shapes from GitHub, Slack, AWS, Stripe, Google, OpenAI, and JWTs. The replacement text is `[REDACTED]`.
+
 ## Client configuration
 
 Use the absolute path to the binary you built. The snippets below assume that path.
@@ -140,12 +156,16 @@ flowchart LR
   server["internal/server"]
   ping["internal/tools/ping"]
   gittools["internal/tools/git"]
+  logtools["internal/tools/logs"]
+  redact["internal/redaction"]
 
   client -->|"stdio JSON-RPC"| main
   main --> server
   server --> ping
   server --> gittools
+  server --> logtools
   gittools -->|"exec git, no shell"| gitbin["git"]
+  logtools --> redact
 ```
 
 ```text
@@ -156,10 +176,10 @@ dev-mcp/
 │   ├── tools/
 │   │   ├── ping/          # health tool
 │   │   ├── git/           # status, diff summary, branch, commit
-│   │   ├── logs/          # placeholder
+│   │   ├── logs/          # tail, search, and redact
 │   │   ├── db/            # placeholder
 │   │   └── docker/        # placeholder
-│   ├── redaction/         # placeholder
+│   ├── redaction/         # secret masking for log text
 │   └── version/           # name and version advertised to clients
 ├── docs/                  # README infographic
 ├── .github/workflows/     # go test -race and golangci-lint
@@ -167,7 +187,7 @@ dev-mcp/
 └── README.md
 ```
 
-`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process.
+`internal/server.New` constructs the SDK server, points its logger at stderr, and registers tools. `internal/server.Run` owns the stdio transport. Tool handlers receive `context.Context` and return before doing work when the context is already cancelled. Git tools run `git` with `exec.CommandContext`, so a cancelled context stops the child process. Log tools read regular files and pass every returned line through `internal/redaction`.
 
 ## Development
 
@@ -189,5 +209,8 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - Commit paths must stay inside the work tree. They are written to `git add` on stdin with NUL separators, and `git commit --only --` records those paths without a shell. `GIT_LITERAL_PATHSPECS=1` keeps pathspecs literal.
 - `git_stage_and_commit` passes `--no-gpg-sign`, so a configured signer cannot block the call. It does not pass `--no-verify`.
 - `GIT_TERMINAL_PROMPT=0` stops git from asking for credentials on the terminal.
+- `logs_tail` and `logs_search` open a regular file. They do not start a program. A file larger than 8 MiB is read from the end only.
+- Log text returned to the client passes through the redaction engine. Assignments, credential URLs, authorization headers, private keys, and common token shapes are replaced with `[REDACTED]`.
+- `logs_search` treats the query as literal text.
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
