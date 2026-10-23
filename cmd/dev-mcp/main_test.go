@@ -13,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/logs"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
 	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
@@ -91,6 +92,28 @@ func TestBinaryPingOverStdio(t *testing.T) {
 	}
 	if status.Branch != "main" || !status.Clean {
 		t.Fatalf("git_status = %+v\nstderr: %s", status, stderr.String())
+	}
+
+	redactRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      logs.ToolRedact,
+		Arguments: logs.RedactArgs{Text: "password=hunter2"},
+	})
+	if err != nil {
+		t.Fatalf("logs_redact error = %v\nstderr: %s", err, stderr.String())
+	}
+	if redactRes.IsError {
+		t.Fatalf("logs_redact tool error: %+v\nstderr: %s", redactRes.Content, stderr.String())
+	}
+	redactData, err := json.Marshal(redactRes.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal logs_redact: %v", err)
+	}
+	var redacted logs.RedactResult
+	if err := json.Unmarshal(redactData, &redacted); err != nil {
+		t.Fatalf("unmarshal logs_redact: %v", err)
+	}
+	if redacted.Text != "password=[REDACTED]" || redacted.Redactions != 1 {
+		t.Fatalf("logs_redact = %+v\nstderr: %s", redacted, stderr.String())
 	}
 	// Close while ctx is still active so the child can leave stdio and exit 0.
 	if err := session.Close(); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ManiaSacha/dev-mcp/internal/tools/git"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/logs"
 	"github.com/ManiaSacha/dev-mcp/internal/tools/ping"
 	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
@@ -136,6 +137,9 @@ func TestNewRegistersGitTools(t *testing.T) {
 		git.ToolDiffSummary,
 		git.ToolStageAndCommit,
 		git.ToolStatus,
+		logs.ToolRedact,
+		logs.ToolSearch,
+		logs.ToolTail,
 		ping.ToolName,
 	}
 	if !slices.Equal(got, want) {
