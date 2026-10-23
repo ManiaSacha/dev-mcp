@@ -1,6 +1,7 @@
 # Binaries
 /bin/
 /dist/
+/dev-mcp
 *.exe
 *.exe~
 *.dll

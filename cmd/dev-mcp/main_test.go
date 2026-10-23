@@ -120,3 +120,26 @@ func TestBinaryPingOverStdio(t *testing.T) {
 		t.Fatalf("close session: %v\nstderr: %s", err, stderr.String())
 	}
 }
+
+func TestVersionFlag(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	bin := filepath.Join(t.TempDir(), "dev-mcp")
+	build := exec.CommandContext(ctx, "go", "build",
+		"-ldflags", "-X github.com/ManiaSacha/dev-mcp/internal/version.Version=9.9.9",
+		"-o", bin, ".")
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--version: %v\n%s", err, out)
+	}
+	if string(out) != "dev-mcp 9.9.9\n" {
+		t.Fatalf("--version = %q", out)
+	}
+}

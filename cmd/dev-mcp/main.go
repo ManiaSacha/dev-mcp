@@ -4,15 +4,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/ManiaSacha/dev-mcp/internal/server"
+	"github.com/ManiaSacha/dev-mcp/internal/version"
 )
 
 func main() {
+	if version.Flag(os.Args[1:]) {
+		fmt.Printf("%s %s\n", version.Name, version.Version)
+		return
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
