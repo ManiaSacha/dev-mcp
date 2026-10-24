@@ -16,8 +16,9 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 
 | Platform | Support |
 | --- | --- |
-| Linux | Tested in CI on every change. |
-| macOS, Windows | The release workflow builds binaries for them. The test suite does not fully pass there yet, so treat these as untested. See [CONTRIBUTING.md](CONTRIBUTING.md) if you want to help. |
+| Linux | Tested in CI on every change, including the race detector. |
+| macOS | The test suite runs and passes in CI on every change. |
+| Windows | The test suite runs and passes in CI on every change. The Docker tool tests are skipped there, because they use a shell-script stand-in for `docker`. |
 
 ## Requirements
 
@@ -291,7 +292,7 @@ golangci-lint run ./...
 
 `go test -race` uses the race detector runtime. On Linux and Windows that runtime is built with cgo, so the machine needs a C compiler (GCC on Linux, MinGW-w64 on Windows). The `dev-mcp` binary itself is still built with `CGO_ENABLED=0`. CI provides the compiler.
 
-CI runs `go mod verify`, the race tests, golangci-lint v2.15.0 and govulncheck on pull requests and on pushes to `main`. The tests also run on macOS and Windows, where a failure is reported but does not block. Workflow actions are pinned to commit SHAs, and Dependabot proposes weekly updates for them and for Go modules. The same workflow builds a CGO-free binary and checks `dev-mcp --version`. Tagged releases are a separate workflow.
+CI runs `go mod verify`, the race tests, golangci-lint v2.15.0 and govulncheck on pull requests and on pushes to `main`. The tests also run on macOS and Windows, without the race detector, and a failure there fails the CI run. Workflow actions are pinned to commit SHAs, and Dependabot proposes weekly updates for them and for Go modules. The same workflow builds a CGO-free binary and checks `dev-mcp --version`. Tagged releases are a separate workflow.
 
 ## Security model
 
