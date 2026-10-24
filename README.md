@@ -61,6 +61,14 @@ CGO_ENABLED=0 go build -trimpath \
 
 Pushing a tag such as `v0.1.0` to this repository runs `.github/workflows/release.yml`. The workflow builds `CGO_ENABLED=0` archives for Linux, macOS, and Windows, on `amd64` and `arm64`. The version baked into those binaries is the tag with the leading `v` removed. Each archive is named `dev-mcp_<version>_<os>_<arch>` and is a `.tar.gz`, or a `.zip` on Windows. The GitHub Release also includes `checksums.txt` with SHA-256 sums.
 
+Release archives also carry a signed build provenance attestation from GitHub, which proves that the file was built by this repository's release workflow from a given commit. Check a download with the GitHub CLI:
+
+```bash
+gh attestation verify dev-mcp_0.1.0_linux_amd64.tar.gz --repo ManiaSacha/dev-mcp
+```
+
+Attestations are only created while the repository is public, so releases made before that have none. Compare those with `checksums.txt` instead.
+
 The tag must start with `v` and the remainder may contain only letters, digits, `.`, `_`, `+`, and `-`. The workflow does not run on pull requests. It runs `go vet` and the race tests first, and builds no archives if they fail. CI on `main` and on pull requests checks that a default build prints the version set in `internal/version/version.go`.
 
 ## Tools
