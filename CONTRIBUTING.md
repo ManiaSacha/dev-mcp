@@ -28,7 +28,7 @@ golangci-lint run ./...
 
 - `go test -race` needs a C compiler on Linux and Windows (GCC or MinGW-w64).
 - CI uses golangci-lint v2.15.0 and `govulncheck`. Use the same version of golangci-lint locally.
-- CI runs the tests on Linux, macOS and Windows. Linux must pass. The macOS and Windows jobs report problems without blocking a merge, because some tests do not yet pass there. Fixes for that are welcome.
+- CI runs the tests on Linux, macOS and Windows, and all three must pass. Keep tests portable: compare directories with `os.SameFile` instead of strings, add `.exe` to binaries you build on Windows, and do not depend on a shell script or on the machine's git identity. The Docker tests use a shell-script fake and are skipped on Windows.
 
 ## Code rules
 

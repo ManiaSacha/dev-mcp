@@ -37,11 +37,9 @@ jobs:
         run: go test -v -race ./...
 
   # Release binaries ship for macOS and Windows, so run the tests there too.
-  # These jobs report problems without blocking the merge.
   portability:
     name: portability (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
