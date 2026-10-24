@@ -277,3 +277,28 @@ func TestTailRedactsSecretStraddlingLineLimit(t *testing.T) {
 		t.Errorf("unexpected tail: %q", text[len(text)-30:])
 	}
 }
+
+func TestSearchDoesNotMatchRedactedSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	body := "login password=hunter2 user=ada\nplain line\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler()
+
+	_, res, err := h.Search(context.Background(), nil, SearchArgs{Path: path, Query: "hunter2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.MatchCount != 0 {
+		t.Errorf("query for a secret value matched %d lines", res.MatchCount)
+	}
+
+	_, res, err = h.Search(context.Background(), nil, SearchArgs{Path: path, Query: "user=ada"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.MatchCount != 1 || strings.Contains(res.Matches[0].Text, "hunter2") {
+		t.Errorf("got %+v", res.Matches)
+	}
+}

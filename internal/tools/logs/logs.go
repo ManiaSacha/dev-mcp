@@ -60,7 +60,7 @@ type TailArgs struct {
 // SearchArgs selects a log file and a literal query.
 type SearchArgs struct {
 	Path       string `json:"path" jsonschema:"path of a regular log file"`
-	Query      string `json:"query" jsonschema:"literal text to find. Regular expression syntax is not interpreted."`
+	Query      string `json:"query" jsonschema:"literal text to find, matched against the redacted text so secret values cannot be searched for. Regular expression syntax is not interpreted."`
 	Matches    int    `json:"matches,omitempty" jsonschema:"maximum matching lines to return. Defaults to 100. Maximum 500."`
 	IgnoreCase *bool  `json:"ignoreCase,omitempty" jsonschema:"compare the query without case when true"`
 }
@@ -133,6 +133,7 @@ func (h Handler) Tail(ctx context.Context, _ *mcp.CallToolRequest, args TailArgs
 }
 
 // Search returns redacted lines that contain the query as literal text.
+// The query is matched against the redacted text, not the original line.
 func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args SearchArgs) (*mcp.CallToolResult, SearchResult, error) {
 	var zero SearchResult
 	if args.Query == "" || strings.ContainsRune(args.Query, 0) {
@@ -161,9 +162,10 @@ func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args Search
 	redactions := 0
 	limited := false
 	for i, line := range scanned.lines {
-		haystack := line
+		// Match the masked text so a query cannot confirm a secret's value.
+		haystack := maskedLines[i]
 		if ignoreCase {
-			haystack = strings.ToLower(line)
+			haystack = strings.ToLower(haystack)
 		}
 		if !strings.Contains(haystack, query) {
 			continue
