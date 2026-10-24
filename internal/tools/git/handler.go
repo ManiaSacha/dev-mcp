@@ -92,6 +92,12 @@ func (h Handler) repoRoot(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// git works on the whole work tree, which can sit above the path the
+	// caller passed. Check the root too, so an allowed folder inside a larger
+	// repository cannot expose or commit the rest of that repository.
+	if err := pathguard.Check(root); err != nil {
+		return "", fmt.Errorf("repository root %s: %w", root, err)
+	}
 	return root, nil
 }
 

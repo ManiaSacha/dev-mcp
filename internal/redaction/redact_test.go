@@ -104,6 +104,12 @@ func TestRedact(t *testing.T) {
 			redactions: 1,
 		},
 		{
+			name:       "short user-only token in a web URL",
+			in:         "clone https://tok123456@host/x and ftp://u@files/y",
+			want:       "clone https://" + mask + "@host/x and ftp://" + mask + "@files/y",
+			redactions: 2,
+		},
+		{
 			name:       "azure connection string",
 			in:         "DefaultEndpointsProtocol=https;AccountKey=abc123+/xyz==;EndpointSuffix=x",
 			want:       "DefaultEndpointsProtocol=https;AccountKey=" + mask + ";EndpointSuffix=x",
@@ -192,5 +198,15 @@ func TestClipAfterRedactDoesNotLeakSecretPrefix(t *testing.T) {
 	masked, _ := Redact(line)
 	if got := Clip(masked, 8); strings.Contains(got, "AAAA") {
 		t.Errorf("secret leaked: %q", got)
+	}
+}
+
+func TestRedactLinesMasksSecretBeforeKey(t *testing.T) {
+	got, n := RedactLines([]string{"password=hunter2 -----BEGIN PRIVATE KEY-----", "body", "-----END PRIVATE KEY-----"})
+	if got[0] != "password=[REDACTED] [REDACTED]" {
+		t.Errorf("first line = %q", got[0])
+	}
+	if n != 2 {
+		t.Errorf("redactions = %d, want 2", n)
 	}
 }

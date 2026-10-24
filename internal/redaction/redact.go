@@ -23,8 +23,12 @@ var (
 	cookieRE        = regexp.MustCompile(`(?i)(\b(?:set-)?cookie\s*:\s*)[^\r\n]*[^\s\[][^\r\n]*`)
 	// Azure connection-string keys.
 	azureKeyRE = regexp.MustCompile(`(?i)(\b(?:AccountKey|SharedAccessKey)\s*=\s*)[^;\s"']+`)
-	// User-only URL credentials such as https://<token>@host. Short names
-	// like git@ are left alone.
+	// User-only credentials in web URLs, such as https://<token>@host, at
+	// any length. "[" is excluded so an already masked value is not counted
+	// twice.
+	webUserRE = regexp.MustCompile(`(?i)(\b(?:https?|ftp)://)[^\s/@:\[]+@`)
+	// User-only URL credentials for other schemes. Short names like the git@
+	// in ssh://git@host are left alone.
 	urlTokenRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[A-Za-z0-9._~-]{20,}@`)
 	npmRE      = regexp.MustCompile(`\bnpm_[A-Za-z0-9]{36}\b`)
 	bearerRE   = regexp.MustCompile(`(?i)(\bbearer\s+)[A-Za-z0-9._~+/=-]{8,}`)
@@ -47,6 +51,8 @@ func Redact(text string) (masked string, redactions int) {
 	text, n = replaceTemplate(urlRE, text, `${1}:`+mask+`@`)
 	redactions += n
 	text, n = replaceTemplate(assignmentRE, text, `${1}`+mask)
+	redactions += n
+	text, n = replaceTemplate(webUserRE, text, `${1}`+mask+`@`)
 	redactions += n
 	text, n = replaceTemplate(urlTokenRE, text, `${1}`+mask+`@`)
 	redactions += n
@@ -105,8 +111,9 @@ func RedactLines(lines []string) (masked []string, redactions int) {
 			continue
 		}
 		if loc := pemBeginRE.FindStringIndex(line); loc != nil && !pemEndRE.MatchString(line[loc[1]:]) {
-			masked[i] = line[:loc[0]] + mask
-			redactions++
+			prefix, n := Redact(line[:loc[0]])
+			masked[i] = prefix + mask
+			redactions += n + 1
 			inKey = true
 			continue
 		}
