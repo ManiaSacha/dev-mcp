@@ -15,6 +15,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ManiaSacha/dev-mcp/internal/pathguard"
 )
 
 const (
@@ -65,6 +67,9 @@ func (h Handler) repoRoot(ctx context.Context, path string) (string, error) {
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
+		return "", fmt.Errorf("path: %w", err)
+	}
+	if err := pathguard.Check(abs); err != nil {
 		return "", fmt.Errorf("path: %w", err)
 	}
 	info, err := os.Stat(abs)

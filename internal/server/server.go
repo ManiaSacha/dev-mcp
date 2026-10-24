@@ -29,6 +29,7 @@ logs_tail and logs_search read a local log file and mask secrets.
 logs_redact masks secrets in text.
 docker_info, docker_ps, docker_health, and docker_logs read the local Docker daemon.
 db_schema reads a SQLite file. db_migrations lists migration files and reports pending versions. It does not execute SQL.
+When DEV_MCP_ALLOWED_ROOTS is set, paths outside those roots are refused.
 These tools never invoke a shell. Write logs to stderr only. stdout carries JSON-RPC.`
 
 // Options configures a server. Zero values use the version package identity

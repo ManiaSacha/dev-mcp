@@ -190,6 +190,16 @@ Recognized names are `N_name.up.sql`, `N_name.down.sql`, and `N_name.sql`. `up` 
 
 golang-migrate stores one current version in `schema_migrations`. Versions below that ceiling are applied. The ceiling version is applied only when `dirty` is false. goose stores each `version_id` in `goose_db_version`. When both tables exist, `schema_migrations` is used. With no tracker table, every forward version is pending. The tool does not apply migrations.
 
+## Restricting file access
+
+By default the file-reading tools (`logs_tail`, `logs_search`, `db_schema`, `db_migrations`, and the git tools' `path`) accept any path the server's user can read. Set `DEV_MCP_ALLOWED_ROOTS` to limit them. It is a list of directories separated by `:` (`;` on Windows):
+
+```bash
+DEV_MCP_ALLOWED_ROOTS="$HOME/projects:/var/log/myapp" ./dev-mcp
+```
+
+When the variable is set, a path must resolve inside one of the roots after symlinks are followed. A path that does not exist, or a variable whose roots all fail to resolve, refuses every request. Set it in your client's `env` block (for example `"env": {"DEV_MCP_ALLOWED_ROOTS": "/home/me/projects"}`). Redaction is best-effort, so keep sensitive directories out of the roots.
+
 ## Client configuration
 
 Use the absolute path to the binary you built. The snippets below assume that path.
@@ -297,6 +307,7 @@ CI runs both the race tests and golangci-lint v2.15.0 on pull requests and on pu
 - `logs_tail` and `logs_search` open a regular file. They do not start a program. A file larger than 8 MiB is read from the end only.
 - Log text returned to the client passes through the redaction engine. Assignments, credential URLs, authorization headers, private keys, and common token shapes are replaced with `[REDACTED]`.
 - `logs_search` treats the query as literal text.
+- `DEV_MCP_ALLOWED_ROOTS` optionally limits the paths that the log, database and git tools may read. It is unset by default, which allows every path.
 - Docker tools do not start, stop, or remove containers. Container names that start with `-` are rejected. `docker_ps` only forwards a state from a fixed list.
 - `docker_health` returns status and health-check output. It does not return environment variables or mounts. Log and health text is redacted.
 - Database tools do not accept caller SQL and do not apply migrations. A SQLite file is opened with `mode=ro` and `PRAGMA query_only`.
