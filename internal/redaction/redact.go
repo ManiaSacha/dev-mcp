@@ -5,7 +5,10 @@
 // secret.
 package redaction
 
-import "regexp"
+import (
+	"regexp"
+	"unicode/utf8"
+)
 
 const mask = "[REDACTED]"
 
@@ -94,4 +97,21 @@ func RedactLines(lines []string) (masked []string, redactions int) {
 		redactions += n
 	}
 	return masked, redactions
+}
+
+const truncationMarker = "…[truncated]"
+
+// Clip shortens text to at most max bytes, cutting on a rune boundary, and
+// appends a truncation marker when it cut anything. Call it after Redact or
+// RedactLines: cutting first can split a secret into pieces too short to
+// match a pattern.
+func Clip(text string, max int) string {
+	if len(text) <= max {
+		return text
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut] + truncationMarker
 }

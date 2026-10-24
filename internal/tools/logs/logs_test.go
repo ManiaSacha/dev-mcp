@@ -256,3 +256,24 @@ func TestTailMasksMultiLinePrivateKey(t *testing.T) {
 		t.Errorf("last line = %q", res.Lines[3].Text)
 	}
 }
+
+func TestTailRedactsSecretStraddlingLineLimit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	// The token starts a few bytes before the 16 KiB cut, so cutting before
+	// redaction would leave a short unmasked prefix of it.
+	line := strings.Repeat("x", maxLineBytes-12) + " ghp_" + strings.Repeat("A", 36) + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, res, err := NewHandler().Tail(context.Background(), nil, TailArgs{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := res.Lines[0].Text
+	if strings.Contains(text, "ghp_") || strings.Contains(text, "AAAA") {
+		t.Errorf("secret prefix leaked: %q", text[len(text)-30:])
+	}
+	if !strings.HasSuffix(text, "…[truncated]") && !strings.HasSuffix(text, "[REDACTED]") {
+		t.Errorf("unexpected tail: %q", text[len(text)-30:])
+	}
+}

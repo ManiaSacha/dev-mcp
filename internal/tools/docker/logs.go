@@ -79,16 +79,18 @@ func collectLogs(stdout, stderr []byte) ([]OutputLine, int, bool) {
 		}
 		parts := strings.Split(text, "\n")
 		for i, part := range parts {
-			parts[i] = clipLine(strings.TrimSuffix(part, "\r"))
+			parts[i] = strings.TrimSuffix(part, "\r")
 		}
 		maskedParts, _ := redaction.RedactLines(parts)
 		for i, masked := range maskedParts {
+			changed := masked != parts[i]
+			masked = redaction.Clip(masked, maxLineBytes)
 			if used+len(masked) > maxOutputBytes {
 				truncated = true
 				return
 			}
 			used += len(masked)
-			if masked != parts[i] {
+			if changed {
 				redactions++
 			}
 			lines = append(lines, OutputLine{Stream: stream, Text: masked})
