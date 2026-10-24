@@ -494,3 +494,22 @@ func TestStatusRespectsAllowedRoots(t *testing.T) {
 		t.Error("git_status ran outside the allowed roots")
 	}
 }
+
+func TestRepoRootOutsideAllowedRootsIsRefused(t *testing.T) {
+	repo := initRepo(t)
+	writeFile(t, repo, "secret.txt", "parent repository file\n")
+	sub := filepath.Join(repo, "allowed")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Only the subfolder is allowed, but git would work on the parent repo.
+	t.Setenv("DEV_MCP_ALLOWED_ROOTS", sub)
+	h := NewHandler()
+	if _, _, err := h.Status(context.Background(), nil, StatusArgs{Path: sub}); err == nil {
+		t.Fatal("git_status listed a repository whose root is outside the allowed roots")
+	}
+	all := true
+	if _, _, err := h.StageAndCommit(context.Background(), nil, StageAndCommitArgs{Path: sub, Message: "x", All: &all}); err == nil {
+		t.Fatal("git_stage_and_commit committed a repository whose root is outside the allowed roots")
+	}
+}

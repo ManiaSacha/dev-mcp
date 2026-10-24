@@ -211,7 +211,7 @@ By default the file-reading tools (`logs_tail`, `logs_search`, `db_schema`, `db_
 DEV_MCP_ALLOWED_ROOTS="$HOME/projects:/var/log/myapp" ./dev-mcp
 ```
 
-When the variable is set, a path must resolve inside one of the roots after symlinks are followed. A path that does not exist, or a variable whose roots all fail to resolve, refuses every request. Set it in your client's `env` block (for example `"env": {"DEV_MCP_ALLOWED_ROOTS": "/home/me/projects"}`). Redaction is best-effort, so keep sensitive directories out of the roots.
+When the variable is set, a path must resolve inside one of the roots after symlinks are followed. For the git tools, the repository's top-level folder must also be inside a root, because git works on the whole repository. A path that does not exist, or a variable whose roots all fail to resolve, refuses every request. Set it in your client's `env` block (for example `"env": {"DEV_MCP_ALLOWED_ROOTS": "/home/me/projects"}`). Redaction is best-effort, so keep sensitive directories out of the roots.
 
 ## Client configuration
 
