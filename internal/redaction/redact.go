@@ -16,16 +16,26 @@ var (
 	pemRE = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----`)
 	urlRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://[^:\s/@]+):[^@\s/]+@`)
 	// Group 1 is the field name and separator. The value is replaced.
-	assignmentRE = regexp.MustCompile(`(?i)(\b(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret|token)\b["']?\s*[=:]\s*)(?:"[^"]*"|'[^']*'|\S+)`)
-	bearerRE     = regexp.MustCompile(`(?i)(\bbearer\s+)[A-Za-z0-9._~+/=-]{8,}`)
-	basicRE      = regexp.MustCompile(`(?i)(authorization\s*:\s*basic\s+)[A-Za-z0-9+/=]{8,}`)
-	githubRE     = regexp.MustCompile(`\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b`)
-	slackRE      = regexp.MustCompile(`\bxox[baprs]-[A-Za-z0-9-]{10,}\b`)
-	openaiRE     = regexp.MustCompile(`\bsk-(?:proj-|live-)?[A-Za-z0-9]{20,}\b`)
-	stripeRE     = regexp.MustCompile(`\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b`)
-	googleRE     = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)
-	awsRE        = regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)
-	jwtRE        = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)
+	assignmentRE = regexp.MustCompile(`(?i)(\b(?:[A-Za-z0-9_.-]*(?:password|passwd|secret|api[_-]?key|access[_-]?key|private[_-]?key|token|credentials?)|pwd)\b["']?\s*[=:]\s*)(?:"[^"]*"|'[^']*'|\S+)`)
+	// Any Authorization scheme (Token, Digest, ApiKey, ...). A value that
+	// starts with "[" is already masked.
+	authorizationRE = regexp.MustCompile(`(?i)(\bauthorization\s*:\s*(?:[A-Za-z][A-Za-z0-9._-]*\s+)?)[^\s\[]\S*`)
+	cookieRE        = regexp.MustCompile(`(?i)(\b(?:set-)?cookie\s*:\s*)[^\r\n]*[^\s\[][^\r\n]*`)
+	// Azure connection-string keys.
+	azureKeyRE = regexp.MustCompile(`(?i)(\b(?:AccountKey|SharedAccessKey)\s*=\s*)[^;\s"']+`)
+	// User-only URL credentials such as https://<token>@host. Short names
+	// like git@ are left alone.
+	urlTokenRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[A-Za-z0-9._~-]{20,}@`)
+	npmRE      = regexp.MustCompile(`\bnpm_[A-Za-z0-9]{36}\b`)
+	bearerRE   = regexp.MustCompile(`(?i)(\bbearer\s+)[A-Za-z0-9._~+/=-]{8,}`)
+	basicRE    = regexp.MustCompile(`(?i)(authorization\s*:\s*basic\s+)[A-Za-z0-9+/=]{8,}`)
+	githubRE   = regexp.MustCompile(`\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b`)
+	slackRE    = regexp.MustCompile(`\bxox[baprs]-[A-Za-z0-9-]{10,}\b`)
+	openaiRE   = regexp.MustCompile(`\bsk-(?:proj-|live-)?[A-Za-z0-9]{20,}\b`)
+	stripeRE   = regexp.MustCompile(`\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b`)
+	googleRE   = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)
+	awsRE      = regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)
+	jwtRE      = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)
 )
 
 // Redact returns text with credential-shaped substrings replaced by [REDACTED].
@@ -38,11 +48,19 @@ func Redact(text string) (masked string, redactions int) {
 	redactions += n
 	text, n = replaceTemplate(assignmentRE, text, `${1}`+mask)
 	redactions += n
+	text, n = replaceTemplate(urlTokenRE, text, `${1}`+mask+`@`)
+	redactions += n
+	text, n = replaceTemplate(authorizationRE, text, `${1}`+mask)
+	redactions += n
+	text, n = replaceTemplate(cookieRE, text, `${1}`+mask)
+	redactions += n
+	text, n = replaceTemplate(azureKeyRE, text, `${1}`+mask)
+	redactions += n
 	text, n = replaceTemplate(bearerRE, text, `${1}`+mask)
 	redactions += n
 	text, n = replaceTemplate(basicRE, text, `${1}`+mask)
 	redactions += n
-	for _, re := range []*regexp.Regexp{githubRE, slackRE, openaiRE, stripeRE, googleRE, awsRE, jwtRE} {
+	for _, re := range []*regexp.Regexp{githubRE, npmRE, slackRE, openaiRE, stripeRE, googleRE, awsRE, jwtRE} {
 		text, n = replaceWhole(re, text, mask)
 		redactions += n
 	}

@@ -74,6 +74,48 @@ func TestRedact(t *testing.T) {
 			redactions: 1,
 		},
 		{
+			name:       "prefixed secret names",
+			in:         "DB_PASSWORD=hunter2 auth_token: abc GITHUB_TOKEN=xyz max_tokens=100",
+			want:       "DB_PASSWORD=" + mask + " auth_token: " + mask + " GITHUB_TOKEN=" + mask + " max_tokens=100",
+			redactions: 3,
+		},
+		{
+			name:       "authorization token scheme",
+			in:         "Authorization: Token abcdef123456",
+			want:       "Authorization: Token " + mask,
+			redactions: 1,
+		},
+		{
+			name:       "authorization without scheme",
+			in:         "authorization: abcdef123456",
+			want:       "authorization: " + mask,
+			redactions: 1,
+		},
+		{
+			name:       "cookie headers",
+			in:         "Cookie: sid=abc; theme=dark",
+			want:       "Cookie: " + mask,
+			redactions: 1,
+		},
+		{
+			name:       "url token without password",
+			in:         "clone https://abcdefghijklmnopqrstuvwx@host.example/x.git and ssh://git@host/x",
+			want:       "clone https://" + mask + "@host.example/x.git and ssh://git@host/x",
+			redactions: 1,
+		},
+		{
+			name:       "azure connection string",
+			in:         "DefaultEndpointsProtocol=https;AccountKey=abc123+/xyz==;EndpointSuffix=x",
+			want:       "DefaultEndpointsProtocol=https;AccountKey=" + mask + ";EndpointSuffix=x",
+			redactions: 1,
+		},
+		{
+			name:       "npm token",
+			in:         "npm_" + "abcdefghijklmnopqrstuvwxyz0123456789",
+			want:       mask,
+			redactions: 1,
+		},
+		{
 			name:       "empty",
 			in:         "",
 			want:       "",
