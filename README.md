@@ -12,14 +12,12 @@ JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a
 
 ## Status
 
-| Step | Scope | State |
-| --- | --- | --- |
-| 1 | Project scaffolding, stdio server, `ping` | done |
-| 2 | Git workflow tools | done |
-| 3 | Log capture and redaction | done |
-| 4 | Docker and container health | done |
-| 5 | Database schema and migrations | done |
-| 6 | Packaging, release config, final docs | done |
+`dev-mcp` is an early release. All tools in this README are implemented and covered by tests.
+
+| Platform | Support |
+| --- | --- |
+| Linux | Tested in CI on every change. |
+| macOS, Windows | The release workflow builds binaries for them. The test suite does not fully pass there yet, so treat these as untested. See [CONTRIBUTING.md](CONTRIBUTING.md) if you want to help. |
 
 ## Requirements
 
@@ -295,7 +293,14 @@ golangci-lint run ./...
 
 CI runs `go mod verify`, the race tests, golangci-lint v2.15.0 and govulncheck on pull requests and on pushes to `main`. The tests also run on macOS and Windows, where a failure is reported but does not block. Workflow actions are pinned to commit SHAs, and Dependabot proposes weekly updates for them and for Go modules. The same workflow builds a CGO-free binary and checks `dev-mcp --version`. Tagged releases are a separate workflow.
 
-## Security notes for this revision
+## Security model
+
+`dev-mcp` runs on your machine with your user's permissions and is driven by an MCP client, usually an AI assistant. Treat what it can do as what your user can do, and limit it with `DEV_MCP_ALLOWED_ROOTS` (see above).
+
+- Redaction is best-effort. It catches common credential shapes, and a secret in an unusual format can pass through.
+- `git_stage_and_commit` runs the repository's git hooks, as `git commit` does. Do not use it on a repository you do not trust.
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md). The list below describes how each tool is built.
 
 - Tool handlers do not invoke a shell. There is no `sh -c` or `bash -c` path.
 - `ping` accepts no caller-controlled command text.
@@ -316,6 +321,10 @@ CI runs `go mod verify`, the race tests, golangci-lint v2.15.0 and govulncheck o
 - Cancellation is checked in the handler and before `Run` starts the transport.
 - Protocol bytes stay on stdout. The default logger writes to stderr.
 - `--version` and `-version` print `dev-mcp` and the build version, then exit. They do not start the stdio server.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## License
 
