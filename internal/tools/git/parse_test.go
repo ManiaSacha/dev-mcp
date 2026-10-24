@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
@@ -123,6 +124,16 @@ func TestValidateInputs(t *testing.T) {
 	}
 	if _, err := validateRelPath("/etc/passwd"); err == nil {
 		t.Fatal("absolute path was accepted")
+	}
+	if _, err := validateRelPath("/"); err == nil {
+		t.Fatal("root path was accepted")
+	}
+	if os.PathSeparator == '\\' {
+		for _, p := range []string{`\temp\x`, `C:\temp\x`, `C:x`} {
+			if _, err := validateRelPath(p); err == nil {
+				t.Fatalf("rooted Windows path %q was accepted", p)
+			}
+		}
 	}
 	if _, err := validateRelPath("."); err == nil {
 		t.Fatal("dot path was accepted")

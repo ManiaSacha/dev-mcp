@@ -30,7 +30,7 @@ func TestStatusAndDiff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status() error = %v", err)
 	}
-	if status.Branch != "main" || status.Clean || status.Root != repo {
+	if status.Branch != "main" || status.Clean || !samePath(t, status.Root, repo) {
 		t.Fatalf("status header = %+v", status)
 	}
 	if !hasEntry(status.Entries, "file.txt", "unmodified", "modified") {
@@ -248,10 +248,15 @@ func TestCommitRejectsMissingIdentity(t *testing.T) {
 
 	h := NewHandler()
 	empty := t.TempDir()
-	h.env = append(commandEnv(),
+	h.env = append(withoutIdentityEnv(commandEnv()),
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_GLOBAL="+filepath.Join(empty, "no-global"),
 		"HOME="+empty,
+		// Stop git from guessing an identity from the user and host name,
+		// which succeeds on some machines (for example macOS runners).
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=user.useConfigOnly",
+		"GIT_CONFIG_VALUE_0=true",
 	)
 	_, _, err := h.StageAndCommit(t.Context(), nil, StageAndCommitArgs{
 		Path:    repo,
@@ -333,6 +338,36 @@ func TestRegisterSchemas(t *testing.T) {
 	if !contains(required, "message") {
 		t.Fatalf("commit required = %v", required)
 	}
+}
+
+// samePath reports whether a and b name the same directory. It compares the
+// directories themselves, so symlinked temp directories (/var and
+// /private/var on macOS) and Windows short names (RUNNER~1) do not matter.
+func samePath(t *testing.T, a, b string) bool {
+	t.Helper()
+	ai, err := os.Stat(a)
+	if err != nil {
+		t.Fatalf("stat %s: %v", a, err)
+	}
+	bi, err := os.Stat(b)
+	if err != nil {
+		t.Fatalf("stat %s: %v", b, err)
+	}
+	return os.SameFile(ai, bi)
+}
+
+// withoutIdentityEnv drops variables that give git an author or committer.
+func withoutIdentityEnv(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, _ := strings.Cut(entry, "=")
+		switch {
+		case strings.HasPrefix(key, "GIT_AUTHOR_"), strings.HasPrefix(key, "GIT_COMMITTER_"), key == "EMAIL":
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func initRepo(t *testing.T) string {

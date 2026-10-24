@@ -3,6 +3,7 @@ package git
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -52,7 +53,7 @@ func validateRelPath(p string) (string, error) {
 	if p == "" || strings.ContainsRune(p, 0) || strings.ContainsAny(p, "\r\n") {
 		return "", errors.New("path is empty or contains a newline")
 	}
-	if filepath.IsAbs(p) {
+	if filepath.IsAbs(p) || filepath.VolumeName(p) != "" || isRooted(p) {
 		return "", fmt.Errorf("path %q must be relative to the repository", p)
 	}
 	clean := filepath.Clean(p)
@@ -60,6 +61,19 @@ func validateRelPath(p string) (string, error) {
 		return "", fmt.Errorf("path %q escapes the repository", p)
 	}
 	return filepath.ToSlash(clean), nil
+}
+
+// isRooted reports whether p starts at a filesystem root without being
+// absolute. On Windows a path such as /etc/passwd or \temp has no drive
+// letter, so filepath.IsAbs is false, yet it does not stay in the work tree.
+func isRooted(p string) bool {
+	if p == "" {
+		return false
+	}
+	if p[0] == '/' {
+		return true
+	}
+	return os.PathSeparator == '\\' && p[0] == '\\'
 }
 
 func normalizeMessage(message string) (string, error) {

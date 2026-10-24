@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -125,7 +126,11 @@ func TestVersionFlag(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
-	bin := filepath.Join(t.TempDir(), "dev-mcp")
+	name := "dev-mcp"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	bin := filepath.Join(t.TempDir(), name)
 	build := exec.CommandContext(ctx, "go", "build",
 		"-ldflags", "-X github.com/ManiaSacha/dev-mcp/internal/version.Version=9.9.9",
 		"-o", bin, ".")
