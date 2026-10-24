@@ -6,6 +6,7 @@ Thanks for helping. Bug reports, fixes and new redaction patterns are all welcom
 
 - For anything larger than a small fix, open an issue first so we can agree on the approach.
 - For security problems, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+- Be kind. By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
