@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -141,6 +142,9 @@ func TestCancelledContext(t *testing.T) {
 
 func writeFake(t *testing.T) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake docker is a shell script, which Windows cannot run")
+	}
 	path := filepath.Join(t.TempDir(), "docker")
 	script := `#!/bin/sh
 printf '%s\n' "$@" > "$DOCKER_FAKE_ARGS"
