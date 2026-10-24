@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ManiaSacha/dev-mcp/internal/redaction"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // HealthArgs names the container to inspect.
@@ -67,15 +68,15 @@ type inspectDocument struct {
 func (h Handler) Health(ctx context.Context, _ *mcp.CallToolRequest, args HealthArgs) (*mcp.CallToolResult, HealthResult, error) {
 	var zero HealthResult
 	if err := validateContainer(args.Container); err != nil {
-		return nil, zero, toolErr(ToolHealth, err)
+		return nil, zero, toolutil.Err(ToolHealth, err)
 	}
 	stdout, err := h.dockerOK(ctx, "inspect", "--type", "container", args.Container)
 	if err != nil {
-		return nil, zero, toolErr(ToolHealth, err)
+		return nil, zero, toolutil.Err(ToolHealth, err)
 	}
 	result, err := parseHealth(stdout)
 	if err != nil {
-		return nil, zero, toolErr(ToolHealth, err)
+		return nil, zero, toolutil.Err(ToolHealth, err)
 	}
 	return nil, result, nil
 }

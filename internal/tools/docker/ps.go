@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // PSArgs filters the container list. Empty fields list every container.
@@ -44,10 +46,10 @@ type psRow struct {
 func (h Handler) PS(ctx context.Context, _ *mcp.CallToolRequest, args PSArgs) (*mcp.CallToolResult, PSResult, error) {
 	var zero PSResult
 	if err := validateState(args.State); err != nil {
-		return nil, zero, toolErr(ToolPS, err)
+		return nil, zero, toolutil.Err(ToolPS, err)
 	}
 	if err := validateNameFilter(args.Name); err != nil {
-		return nil, zero, toolErr(ToolPS, err)
+		return nil, zero, toolutil.Err(ToolPS, err)
 	}
 	dockerArgs := []string{"ps", "-a", "--no-trunc", "--format", "{{json .}}"}
 	if args.State != "" {
@@ -55,11 +57,11 @@ func (h Handler) PS(ctx context.Context, _ *mcp.CallToolRequest, args PSArgs) (*
 	}
 	stdout, err := h.dockerOK(ctx, dockerArgs...)
 	if err != nil {
-		return nil, zero, toolErr(ToolPS, err)
+		return nil, zero, toolutil.Err(ToolPS, err)
 	}
 	containers, err := parsePS(stdout, args.Name)
 	if err != nil {
-		return nil, zero, toolErr(ToolPS, err)
+		return nil, zero, toolutil.Err(ToolPS, err)
 	}
 	return nil, PSResult{Containers: containers, Count: len(containers)}, nil
 }

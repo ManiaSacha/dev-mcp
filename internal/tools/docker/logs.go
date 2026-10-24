@@ -8,6 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ManiaSacha/dev-mcp/internal/redaction"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // LogsArgs selects a container and how many log lines to return.
@@ -36,11 +37,11 @@ type LogsResult struct {
 func (h Handler) Logs(ctx context.Context, _ *mcp.CallToolRequest, args LogsArgs) (*mcp.CallToolResult, LogsResult, error) {
 	var zero LogsResult
 	if err := validateContainer(args.Container); err != nil {
-		return nil, zero, toolErr(ToolLogs, err)
+		return nil, zero, toolutil.Err(ToolLogs, err)
 	}
-	n, err := bounded(args.Lines, defaultLogLines, maxLogLines, "lines")
+	n, err := toolutil.Bounded(args.Lines, defaultLogLines, maxLogLines, "lines")
 	if err != nil {
-		return nil, zero, toolErr(ToolLogs, err)
+		return nil, zero, toolutil.Err(ToolLogs, err)
 	}
 	dockerArgs := []string{"logs", "--tail", strconv.Itoa(n)}
 	if args.Timestamps != nil && *args.Timestamps {
@@ -49,10 +50,10 @@ func (h Handler) Logs(ctx context.Context, _ *mcp.CallToolRequest, args LogsArgs
 	dockerArgs = append(dockerArgs, args.Container)
 	stdout, stderr, code, err := h.run(ctx, dockerArgs...)
 	if err != nil {
-		return nil, zero, toolErr(ToolLogs, err)
+		return nil, zero, toolutil.Err(ToolLogs, err)
 	}
 	if code != 0 {
-		return nil, zero, toolErr(ToolLogs, dockerExit(dockerArgs, stderr, code))
+		return nil, zero, toolutil.Err(ToolLogs, dockerExit(dockerArgs, stderr, code))
 	}
 	lines, redactions, truncated := collectLogs(stdout, stderr)
 	return nil, LogsResult{

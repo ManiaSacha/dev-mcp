@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // DiffSummaryArgs selects which side of the diff to summarize.
@@ -45,7 +47,7 @@ func (h Handler) DiffSummary(ctx context.Context, _ *mcp.CallToolRequest, args D
 	var zero DiffSummaryResult
 	root, err := h.repoRoot(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolDiffSummary, err)
+		return nil, zero, toolutil.Err(ToolDiffSummary, err)
 	}
 	result := DiffSummaryResult{Root: root}
 	wantStaged := args.Staged == nil || *args.Staged
@@ -53,14 +55,14 @@ func (h Handler) DiffSummary(ctx context.Context, _ *mcp.CallToolRequest, args D
 	if wantStaged {
 		side, err := h.numstat(ctx, root, "diff", "--cached", "--numstat", "-z")
 		if err != nil {
-			return nil, zero, toolErr(ToolDiffSummary, err)
+			return nil, zero, toolutil.Err(ToolDiffSummary, err)
 		}
 		result.Staged = &side
 	}
 	if wantUnstaged {
 		side, err := h.numstat(ctx, root, "diff", "--numstat", "-z")
 		if err != nil {
-			return nil, zero, toolErr(ToolDiffSummary, err)
+			return nil, zero, toolutil.Err(ToolDiffSummary, err)
 		}
 		result.Unstaged = &side
 	}

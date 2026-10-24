@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // StageAndCommitArgs selects what to record and the commit message.
@@ -36,42 +38,42 @@ func (h Handler) StageAndCommit(ctx context.Context, _ *mcp.CallToolRequest, arg
 	var zero StageAndCommitResult
 	message, err := normalizeMessage(args.Message)
 	if err != nil {
-		return nil, zero, toolErr(ToolStageAndCommit, err)
+		return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 	}
 	paths, all, err := stageSelection(args)
 	if err != nil {
-		return nil, zero, toolErr(ToolStageAndCommit, err)
+		return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 	}
 	root, err := h.repoRoot(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolStageAndCommit, err)
+		return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 	}
 	if err := h.ensureChanges(ctx, root, paths); err != nil {
-		return nil, zero, toolErr(ToolStageAndCommit, err)
+		return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 	}
 
 	if all {
 		if err := h.gitOK(ctx, root, nil, "add", "-A"); err != nil {
-			return nil, zero, toolErr(ToolStageAndCommit, err)
+			return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 		}
 		if err := h.gitOK(ctx, root, []byte(message), "commit", "--no-gpg-sign", "-F", "-"); err != nil {
-			return nil, zero, toolErr(ToolStageAndCommit, err)
+			return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 		}
 	} else {
 		if err := h.gitOK(ctx, root, encodePathspecs(paths), "add", "--pathspec-from-file=-", "--pathspec-file-nul"); err != nil {
-			return nil, zero, toolErr(ToolStageAndCommit, err)
+			return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 		}
 		commitArgs := make([]string, 0, 7+len(paths))
 		commitArgs = append(commitArgs, "commit", "--no-gpg-sign", "-F", "-", "--only", "--")
 		commitArgs = append(commitArgs, paths...)
 		if err := h.gitOK(ctx, root, []byte(message), commitArgs...); err != nil {
-			return nil, zero, toolErr(ToolStageAndCommit, err)
+			return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 		}
 	}
 
 	result, err := h.commitResult(ctx, root)
 	if err != nil {
-		return nil, zero, toolErr(ToolStageAndCommit, err)
+		return nil, zero, toolutil.Err(ToolStageAndCommit, err)
 	}
 	return nil, result, nil
 }

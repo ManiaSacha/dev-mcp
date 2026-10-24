@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 const (
@@ -61,26 +63,26 @@ type MigrationsResult struct {
 func (Handler) Migrations(ctx context.Context, _ *mcp.CallToolRequest, args MigrationsArgs) (*mcp.CallToolResult, MigrationsResult, error) {
 	var zero MigrationsResult
 	if err := ctx.Err(); err != nil {
-		return nil, zero, toolErr(ToolMigrations, err)
+		return nil, zero, toolutil.Err(ToolMigrations, err)
 	}
 	if err := validateDirPath(args.Directory); err != nil {
-		return nil, zero, toolErr(ToolMigrations, err)
+		return nil, zero, toolutil.Err(ToolMigrations, err)
 	}
 	files, truncated, err := listMigrationFiles(args.Directory)
 	if err != nil {
-		return nil, zero, toolErr(ToolMigrations, err)
+		return nil, zero, toolutil.Err(ToolMigrations, err)
 	}
 
 	state := appliedState{tracker: trackerNone}
 	if args.Database != "" {
 		database, err := openReadOnly(ctx, args.Database)
 		if err != nil {
-			return nil, zero, toolErr(ToolMigrations, err)
+			return nil, zero, toolutil.Err(ToolMigrations, err)
 		}
 		state, err = readApplied(ctx, database)
 		_ = database.Close()
 		if err != nil {
-			return nil, zero, toolErr(ToolMigrations, err)
+			return nil, zero, toolutil.Err(ToolMigrations, err)
 		}
 	}
 

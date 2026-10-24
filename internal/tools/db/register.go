@@ -1,10 +1,6 @@
 package db
 
-import (
-	"fmt"
-
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-)
+import "github.com/modelcontextprotocol/go-sdk/mcp"
 
 // Handler is the SQLite schema and migration reader.
 type Handler struct{}
@@ -34,11 +30,4 @@ func readOnlyAnnotations() *mcp.ToolAnnotations {
 		IdempotentHint: true,
 		OpenWorldHint:  &closed,
 	}
-}
-
-func toolErr(tool string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", tool, err)
 }
