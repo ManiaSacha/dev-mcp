@@ -10,6 +10,12 @@ The figure shows the stdio process and the original git tools. Log, Docker, and 
 
 JSON-RPC stays on stdout. Logs stay on stderr. Git arguments are a vector, not a shell string, and commit paths stay inside the repository.
 
+## Demo
+
+![A terminal recording of an MCP client calling dev-mcp tools: it lists the tools, reads git status and the diff, commits a file, tails a log with four secrets masked, searches the log for a password and finds nothing, reads a database schema and pending migrations, and is refused when it asks for a file outside the allowed folder.](docs/dev-mcp-demo.gif)
+
+The recording shows a real run of the built binary against a small sample project: a git repository, a log file full of fake credentials, a SQLite database and a migrations folder, with `DEV_MCP_ALLOWED_ROOTS` set to that folder. The responses are condensed for readability. The Docker tools are not shown, because they need a running Docker daemon.
+
 ## Status
 
 `dev-mcp` is an early release. All tools in this README are implemented and covered by tests.
