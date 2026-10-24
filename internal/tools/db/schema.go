@@ -8,6 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ManiaSacha/dev-mcp/internal/redaction"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 const (
@@ -69,13 +70,13 @@ func (Handler) Schema(ctx context.Context, _ *mcp.CallToolRequest, args SchemaAr
 	var zero SchemaResult
 	database, err := openReadOnly(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolSchema, err)
+		return nil, zero, toolutil.Err(ToolSchema, err)
 	}
 	defer closeQuiet(database)
 
 	result, err := readSchema(ctx, database, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolSchema, err)
+		return nil, zero, toolutil.Err(ToolSchema, err)
 	}
 	return nil, result, nil
 }

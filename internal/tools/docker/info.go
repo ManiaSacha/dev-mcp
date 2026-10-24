@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // InfoArgs has no fields. The tool uses the server's Docker context.
@@ -38,22 +40,22 @@ func (h Handler) Info(ctx context.Context, _ *mcp.CallToolRequest, _ InfoArgs) (
 	var zero InfoResult
 	stdout, stderr, code, err := h.run(ctx, "version", "--format", "{{json .}}")
 	if err != nil {
-		return nil, zero, toolErr(ToolInfo, err)
+		return nil, zero, toolutil.Err(ToolInfo, err)
 	}
 	result, parseErr := parseInfo(stdout)
 	if code != 0 {
 		if parseErr == nil && result.ServerVersion == "" {
-			return nil, zero, toolErr(ToolInfo, dockerExit([]string{"version"}, stderr, code))
+			return nil, zero, toolutil.Err(ToolInfo, dockerExit([]string{"version"}, stderr, code))
 		}
 		if parseErr != nil {
-			return nil, zero, toolErr(ToolInfo, dockerExit([]string{"version"}, stderr, code))
+			return nil, zero, toolutil.Err(ToolInfo, dockerExit([]string{"version"}, stderr, code))
 		}
 	}
 	if parseErr != nil {
-		return nil, zero, toolErr(ToolInfo, parseErr)
+		return nil, zero, toolutil.Err(ToolInfo, parseErr)
 	}
 	if result.ServerVersion == "" {
-		return nil, zero, toolErr(ToolInfo, fmt.Errorf("docker daemon is not reachable"))
+		return nil, zero, toolutil.Err(ToolInfo, fmt.Errorf("docker daemon is not reachable"))
 	}
 	return nil, result, nil
 }

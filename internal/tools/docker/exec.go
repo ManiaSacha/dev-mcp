@@ -125,23 +125,3 @@ func (h Handler) childEnv() []string {
 	}
 	return append(env, "DOCKER_CLI_HINTS=false")
 }
-
-func toolErr(tool string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", tool, err)
-}
-
-func bounded(n, fallback, max int, name string) (int, error) {
-	if n == 0 {
-		return fallback, nil
-	}
-	if n < 0 {
-		return 0, fmt.Errorf("%s must be positive", name)
-	}
-	if n > max {
-		return 0, fmt.Errorf("%s must be at most %d", name, max)
-	}
-	return n, nil
-}

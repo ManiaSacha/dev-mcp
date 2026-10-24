@@ -190,10 +190,3 @@ func commandEnv() []string {
 		"GIT_PAGER=cat",
 	)
 }
-
-func toolErr(tool string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", tool, err)
-}

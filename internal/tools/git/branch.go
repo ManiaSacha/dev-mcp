@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 // CreateBranchArgs names the branch to create.
@@ -28,22 +30,22 @@ type CreateBranchResult struct {
 func (h Handler) CreateBranch(ctx context.Context, _ *mcp.CallToolRequest, args CreateBranchArgs) (*mcp.CallToolResult, CreateBranchResult, error) {
 	var zero CreateBranchResult
 	if err := validateBranchName(args.Name); err != nil {
-		return nil, zero, toolErr(ToolCreateBranch, err)
+		return nil, zero, toolutil.Err(ToolCreateBranch, err)
 	}
 	if err := validateStartPoint(args.StartPoint); err != nil {
-		return nil, zero, toolErr(ToolCreateBranch, err)
+		return nil, zero, toolutil.Err(ToolCreateBranch, err)
 	}
 	root, err := h.repoRoot(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolCreateBranch, err)
+		return nil, zero, toolutil.Err(ToolCreateBranch, err)
 	}
 	if err := h.gitOK(ctx, root, nil, "check-ref-format", "--branch", args.Name); err != nil {
-		return nil, zero, toolErr(ToolCreateBranch, err)
+		return nil, zero, toolutil.Err(ToolCreateBranch, err)
 	}
 	if args.StartPoint != "" {
 		rev := args.StartPoint + "^{commit}"
 		if err := h.gitOK(ctx, root, nil, "rev-parse", "--verify", "--end-of-options", rev); err != nil {
-			return nil, zero, toolErr(ToolCreateBranch, err)
+			return nil, zero, toolutil.Err(ToolCreateBranch, err)
 		}
 	}
 
@@ -57,7 +59,7 @@ func (h Handler) CreateBranch(ctx context.Context, _ *mcp.CallToolRequest, args 
 			gitArgs = append(gitArgs, "--", args.StartPoint)
 		}
 		if err := h.gitOK(ctx, root, nil, gitArgs...); err != nil {
-			return nil, zero, toolErr(ToolCreateBranch, err)
+			return nil, zero, toolutil.Err(ToolCreateBranch, err)
 		}
 	} else {
 		gitArgs := []string{"branch", "--", args.Name}
@@ -65,13 +67,13 @@ func (h Handler) CreateBranch(ctx context.Context, _ *mcp.CallToolRequest, args 
 			gitArgs = append(gitArgs, args.StartPoint)
 		}
 		if err := h.gitOK(ctx, root, nil, gitArgs...); err != nil {
-			return nil, zero, toolErr(ToolCreateBranch, err)
+			return nil, zero, toolutil.Err(ToolCreateBranch, err)
 		}
 	}
 
 	result, err := h.branchResult(ctx, root, args.Name, checkout)
 	if err != nil {
-		return nil, zero, toolErr(ToolCreateBranch, err)
+		return nil, zero, toolutil.Err(ToolCreateBranch, err)
 	}
 	return nil, result, nil
 }

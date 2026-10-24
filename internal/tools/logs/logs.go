@@ -18,6 +18,7 @@ import (
 
 	"github.com/ManiaSacha/dev-mcp/internal/pathguard"
 	"github.com/ManiaSacha/dev-mcp/internal/redaction"
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 const (
@@ -109,13 +110,13 @@ type RedactResult struct {
 // Tail returns the redacted end of a log file.
 func (h Handler) Tail(ctx context.Context, _ *mcp.CallToolRequest, args TailArgs) (*mcp.CallToolResult, TailResult, error) {
 	var zero TailResult
-	n, err := bounded(args.Lines, defaultTailLines, maxTailLines, "lines")
+	n, err := toolutil.Bounded(args.Lines, defaultTailLines, maxTailLines, "lines")
 	if err != nil {
-		return nil, zero, toolErr(ToolTail, err)
+		return nil, zero, toolutil.Err(ToolTail, err)
 	}
 	scanned, err := h.read(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolTail, err)
+		return nil, zero, toolutil.Err(ToolTail, err)
 	}
 	start := 0
 	if len(scanned.lines) > n {
@@ -138,18 +139,18 @@ func (h Handler) Tail(ctx context.Context, _ *mcp.CallToolRequest, args TailArgs
 func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args SearchArgs) (*mcp.CallToolResult, SearchResult, error) {
 	var zero SearchResult
 	if args.Query == "" || strings.ContainsRune(args.Query, 0) {
-		return nil, zero, toolErr(ToolSearch, errors.New("query is empty"))
+		return nil, zero, toolutil.Err(ToolSearch, errors.New("query is empty"))
 	}
 	if len(args.Query) > 500 {
-		return nil, zero, toolErr(ToolSearch, errors.New("query is too long"))
+		return nil, zero, toolutil.Err(ToolSearch, errors.New("query is too long"))
 	}
-	limit, err := bounded(args.Matches, defaultMatchLimit, maxMatchLimit, "matches")
+	limit, err := toolutil.Bounded(args.Matches, defaultMatchLimit, maxMatchLimit, "matches")
 	if err != nil {
-		return nil, zero, toolErr(ToolSearch, err)
+		return nil, zero, toolutil.Err(ToolSearch, err)
 	}
 	scanned, err := h.read(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolSearch, err)
+		return nil, zero, toolutil.Err(ToolSearch, err)
 	}
 
 	query := args.Query
@@ -196,10 +197,10 @@ func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args Search
 func (h Handler) Redact(ctx context.Context, _ *mcp.CallToolRequest, args RedactArgs) (*mcp.CallToolResult, RedactResult, error) {
 	var zero RedactResult
 	if err := ctx.Err(); err != nil {
-		return nil, zero, toolErr(ToolRedact, err)
+		return nil, zero, toolutil.Err(ToolRedact, err)
 	}
 	if len(args.Text) > maxRedactBytes {
-		return nil, zero, toolErr(ToolRedact, errors.New("text is too long"))
+		return nil, zero, toolutil.Err(ToolRedact, errors.New("text is too long"))
 	}
 	masked, n := redaction.Redact(args.Text)
 	return nil, RedactResult{Text: masked, Redactions: n}, nil
@@ -310,24 +311,4 @@ func maskLines(lines []string, start int) ([]LogLine, int) {
 		out = append(out, LogLine{Number: start + i + 1, Text: redaction.Clip(text, maxLineBytes)})
 	}
 	return out, redactions
-}
-
-func bounded(n, fallback, max int, name string) (int, error) {
-	if n == 0 {
-		return fallback, nil
-	}
-	if n < 0 {
-		return 0, fmt.Errorf("%s must be positive", name)
-	}
-	if n > max {
-		return 0, fmt.Errorf("%s must be at most %d", name, max)
-	}
-	return n, nil
-}
-
-func toolErr(tool string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", tool, err)
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ManiaSacha/dev-mcp/internal/tools/toolutil"
 )
 
 var (
@@ -46,15 +48,15 @@ func (h Handler) Status(ctx context.Context, _ *mcp.CallToolRequest, args Status
 	var zero StatusResult
 	root, err := h.repoRoot(ctx, args.Path)
 	if err != nil {
-		return nil, zero, toolErr(ToolStatus, err)
+		return nil, zero, toolutil.Err(ToolStatus, err)
 	}
 	out, err := h.gitStdout(ctx, root, "status", "--porcelain=v1", "-b", "-z")
 	if err != nil {
-		return nil, zero, toolErr(ToolStatus, err)
+		return nil, zero, toolutil.Err(ToolStatus, err)
 	}
 	result, err := parseStatus(out)
 	if err != nil {
-		return nil, zero, toolErr(ToolStatus, err)
+		return nil, zero, toolutil.Err(ToolStatus, err)
 	}
 	result.Root = root
 	return nil, result, nil
