@@ -1,6 +1,9 @@
 package redaction
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRedact(t *testing.T) {
 	t.Parallel()
@@ -129,5 +132,23 @@ func TestRedactLinesSingleLineKeyAndUnterminated(t *testing.T) {
 	got, _ = RedactLines([]string{"-----BEGIN PRIVATE KEY-----", "body", "more"})
 	if got[1] != "[REDACTED]" || got[2] != "[REDACTED]" {
 		t.Errorf("unterminated key leaked: %q", got)
+	}
+}
+
+func TestClip(t *testing.T) {
+	if got := Clip("short", 10); got != "short" {
+		t.Errorf("got %q", got)
+	}
+	got := Clip("héllo", 2) // byte 2 is inside the two-byte é
+	if got != "h…[truncated]" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestClipAfterRedactDoesNotLeakSecretPrefix(t *testing.T) {
+	line := "token=" + strings.Repeat("A", 40)
+	masked, _ := Redact(line)
+	if got := Clip(masked, 8); strings.Contains(got, "AAAA") {
+		t.Errorf("secret leaked: %q", got)
 	}
 }

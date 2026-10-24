@@ -172,7 +172,7 @@ func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args Search
 			limited = true
 			break
 		}
-		matches = append(matches, LogLine{Number: i + 1, Text: maskedLines[i]})
+		matches = append(matches, LogLine{Number: i + 1, Text: redaction.Clip(maskedLines[i], maxLineBytes)})
 		if maskedLines[i] != line {
 			redactions++
 		}
@@ -292,11 +292,7 @@ func splitLines(b []byte) []string {
 	lines := make([]string, 0, len(raw))
 	for _, line := range raw {
 		line = bytes.TrimSuffix(line, []byte{'\r'})
-		text := string(line)
-		if len(text) > maxLineBytes {
-			text = text[:maxLineBytes] + "…[truncated]"
-		}
-		lines = append(lines, text)
+		lines = append(lines, string(line))
 	}
 	return lines
 }
@@ -305,7 +301,7 @@ func maskLines(lines []string, start int) ([]LogLine, int) {
 	masked, redactions := redaction.RedactLines(lines)
 	out := make([]LogLine, 0, len(lines))
 	for i, text := range masked {
-		out = append(out, LogLine{Number: start + i + 1, Text: text})
+		out = append(out, LogLine{Number: start + i + 1, Text: redaction.Clip(text, maxLineBytes)})
 	}
 	return out, redactions
 }
