@@ -9,8 +9,29 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
   build:
     name: build
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       matrix:
