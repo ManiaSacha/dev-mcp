@@ -155,6 +155,8 @@ func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args Search
 	if ignoreCase {
 		query = strings.ToLower(query)
 	}
+	// Mask the whole scan first so multi-line secrets are caught.
+	maskedLines, _ := redaction.RedactLines(scanned.lines)
 	matches := make([]LogLine, 0)
 	redactions := 0
 	limited := false
@@ -170,9 +172,10 @@ func (h Handler) Search(ctx context.Context, _ *mcp.CallToolRequest, args Search
 			limited = true
 			break
 		}
-		masked, n := redaction.Redact(line)
-		redactions += n
-		matches = append(matches, LogLine{Number: i + 1, Text: masked})
+		matches = append(matches, LogLine{Number: i + 1, Text: maskedLines[i]})
+		if maskedLines[i] != line {
+			redactions++
+		}
 	}
 	return nil, SearchResult{
 		Path:              args.Path,
@@ -299,12 +302,10 @@ func splitLines(b []byte) []string {
 }
 
 func maskLines(lines []string, start int) ([]LogLine, int) {
+	masked, redactions := redaction.RedactLines(lines)
 	out := make([]LogLine, 0, len(lines))
-	redactions := 0
-	for i, line := range lines {
-		masked, n := redaction.Redact(line)
-		redactions += n
-		out = append(out, LogLine{Number: start + i + 1, Text: masked})
+	for i, text := range masked {
+		out = append(out, LogLine{Number: start + i + 1, Text: text})
 	}
 	return out, redactions
 }
