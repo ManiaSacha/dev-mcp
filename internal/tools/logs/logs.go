@@ -16,6 +16,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ManiaSacha/dev-mcp/internal/pathguard"
 	"github.com/ManiaSacha/dev-mcp/internal/redaction"
 )
 
@@ -217,6 +218,9 @@ func (h Handler) read(ctx context.Context, path string) (scan fileScan, err erro
 	}
 	if path == "" || strings.ContainsRune(path, 0) || strings.ContainsAny(path, "\r\n") {
 		return fileScan{}, errors.New("path is empty or contains a newline")
+	}
+	if err = pathguard.Check(path); err != nil {
+		return fileScan{}, fmt.Errorf("path: %w", err)
 	}
 	f, err := os.Open(path)
 	if err != nil {

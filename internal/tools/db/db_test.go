@@ -258,3 +258,16 @@ func hasIndex(indexes []Index, name, column string) bool {
 	}
 	return false
 }
+
+func TestToolsRespectAllowedRoots(t *testing.T) {
+	path := writeSQLite(t, []string{`CREATE TABLE t (id INTEGER PRIMARY KEY)`})
+	t.Setenv("DEV_MCP_ALLOWED_ROOTS", t.TempDir())
+	var h Handler
+
+	if _, _, err := h.Schema(context.Background(), nil, SchemaArgs{Path: path}); err == nil {
+		t.Error("db_schema read a file outside the allowed roots")
+	}
+	if _, _, err := h.Migrations(context.Background(), nil, MigrationsArgs{Directory: filepath.Dir(path)}); err == nil {
+		t.Error("db_migrations listed a directory outside the allowed roots")
+	}
+}

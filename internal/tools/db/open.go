@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	_ "modernc.org/sqlite" // register the CGO-free SQLite driver
+
+	"github.com/ManiaSacha/dev-mcp/internal/pathguard"
 )
 
 const sqliteDriver = "sqlite"
@@ -27,6 +29,9 @@ func openReadOnly(ctx context.Context, path string) (*sql.DB, error) {
 	}
 	if err := validateFilePath(path); err != nil {
 		return nil, err
+	}
+	if err := pathguard.Check(path); err != nil {
+		return nil, fmt.Errorf("path: %w", err)
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -75,6 +80,9 @@ func validateFilePath(path string) error {
 func validateDirPath(path string) error {
 	if err := validateFilePath(path); err != nil {
 		return err
+	}
+	if err := pathguard.Check(path); err != nil {
+		return fmt.Errorf("path: %w", err)
 	}
 	info, err := os.Stat(path)
 	if err != nil {

@@ -451,3 +451,11 @@ func schemaObject(t *testing.T, schema any) map[string]any {
 	}
 	return object
 }
+
+func TestStatusRespectsAllowedRoots(t *testing.T) {
+	t.Setenv("DEV_MCP_ALLOWED_ROOTS", t.TempDir())
+	h := NewHandler()
+	if _, _, err := h.Status(context.Background(), nil, StatusArgs{Path: t.TempDir()}); err == nil {
+		t.Error("git_status ran outside the allowed roots")
+	}
+}

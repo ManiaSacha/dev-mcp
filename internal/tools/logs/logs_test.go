@@ -302,3 +302,25 @@ func TestSearchDoesNotMatchRedactedSecrets(t *testing.T) {
 		t.Errorf("got %+v", res.Matches)
 	}
 }
+
+func TestTailRespectsAllowedRoots(t *testing.T) {
+	allowed := t.TempDir()
+	other := t.TempDir()
+	for _, dir := range []string{allowed, other} {
+		if err := os.WriteFile(filepath.Join(dir, "app.log"), []byte("hello\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("DEV_MCP_ALLOWED_ROOTS", allowed)
+	h := NewHandler()
+
+	if _, _, err := h.Tail(context.Background(), nil, TailArgs{Path: filepath.Join(allowed, "app.log")}); err != nil {
+		t.Errorf("allowed path: %v", err)
+	}
+	if _, _, err := h.Tail(context.Background(), nil, TailArgs{Path: filepath.Join(other, "app.log")}); err == nil {
+		t.Error("path outside the allowed roots was read")
+	}
+	if _, _, err := h.Search(context.Background(), nil, SearchArgs{Path: filepath.Join(other, "app.log"), Query: "hello"}); err == nil {
+		t.Error("search outside the allowed roots succeeded")
+	}
+}
