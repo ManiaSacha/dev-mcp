@@ -236,3 +236,23 @@ func contains(values []string, want string) bool {
 	}
 	return false
 }
+
+func TestTailMasksMultiLinePrivateKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "app.log")
+	body := "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1234567890abcdef\n-----END RSA PRIVATE KEY-----\nok\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, res, err := NewHandler().Tail(context.Background(), nil, TailArgs{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range res.Lines[:3] {
+		if l.Text != "[REDACTED]" {
+			t.Errorf("line %d leaked: %q", l.Number, l.Text)
+		}
+	}
+	if res.Lines[3].Text != "ok" {
+		t.Errorf("last line = %q", res.Lines[3].Text)
+	}
+}

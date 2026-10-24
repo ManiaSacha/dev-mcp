@@ -97,3 +97,37 @@ func TestRedactLeavesUnrelatedWords(t *testing.T) {
 		t.Fatalf("Redact() = %q, %d", got, n)
 	}
 }
+
+func TestRedactLinesMasksMultiLinePrivateKey(t *testing.T) {
+	in := []string{
+		"before",
+		"key: -----BEGIN RSA PRIVATE KEY-----",
+		"MIIEpAIBAAKCAQEA1234567890abcdef",
+		"-----END RSA PRIVATE KEY-----",
+		"after password=hunter2",
+	}
+	got, n := RedactLines(in)
+	if len(got) != len(in) {
+		t.Fatalf("line count = %d, want %d", len(got), len(in))
+	}
+	want := []string{"before", "key: [REDACTED]", "[REDACTED]", "[REDACTED]", "after password=[REDACTED]"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("line %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if n != 2 {
+		t.Errorf("redactions = %d, want 2", n)
+	}
+}
+
+func TestRedactLinesSingleLineKeyAndUnterminated(t *testing.T) {
+	got, _ := RedactLines([]string{"-----BEGIN PRIVATE KEY-----abc-----END PRIVATE KEY-----", "next"})
+	if got[0] != "[REDACTED]" || got[1] != "next" {
+		t.Errorf("got %q", got)
+	}
+	got, _ = RedactLines([]string{"-----BEGIN PRIVATE KEY-----", "body", "more"})
+	if got[1] != "[REDACTED]" || got[2] != "[REDACTED]" {
+		t.Errorf("unterminated key leaked: %q", got)
+	}
+}

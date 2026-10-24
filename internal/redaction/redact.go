@@ -61,3 +61,37 @@ func replaceTemplate(re *regexp.Regexp, text, repl string) (string, int) {
 	}
 	return re.ReplaceAllString(text, repl), n
 }
+
+var (
+	pemBeginRE = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----`)
+	pemEndRE   = regexp.MustCompile(`-----END [A-Z0-9 ]*PRIVATE KEY-----`)
+)
+
+// RedactLines masks credential-shaped text across a sequence of lines.
+// It applies Redact to each line and also masks private-key blocks that
+// span several lines. The result has the same number of lines as the
+// input so line numbers stay valid. redactions counts a multi-line key
+// block once.
+func RedactLines(lines []string) (masked []string, redactions int) {
+	masked = make([]string, len(lines))
+	inKey := false
+	for i, line := range lines {
+		if inKey {
+			masked[i] = mask
+			if pemEndRE.MatchString(line) {
+				inKey = false
+			}
+			continue
+		}
+		if loc := pemBeginRE.FindStringIndex(line); loc != nil && !pemEndRE.MatchString(line[loc[1]:]) {
+			masked[i] = line[:loc[0]] + mask
+			redactions++
+			inKey = true
+			continue
+		}
+		var n int
+		masked[i], n = Redact(line)
+		redactions += n
+	}
+	return masked, redactions
+}
