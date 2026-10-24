@@ -24,7 +24,9 @@ jobs:
       - name: Build CGO-free binary
         run: |
           go build -o dev-mcp ./cmd/dev-mcp
-          test "$(./dev-mcp --version)" = "dev-mcp 0.1.0"
+          want="$(sed -n 's/^var Version = "\(.*\)"$/\1/p' internal/version/version.go)"
+          test -n "${want}"
+          test "$(./dev-mcp --version)" = "dev-mcp ${want}"
         env:
           CGO_ENABLED: "0"
 
