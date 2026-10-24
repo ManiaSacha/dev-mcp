@@ -115,7 +115,8 @@ func parseHealth(raw []byte) (HealthResult, error) {
 		logs = logs[len(logs)-maxHealthLogs:]
 	}
 	for _, entry := range logs {
-		output, _ := redaction.Redact(clipLine(entry.Output))
+		output, _ := redaction.Redact(entry.Output)
+		output = redaction.Clip(output, maxLineBytes)
 		result.Logs = append(result.Logs, HealthLog{
 			Start:    entry.Start,
 			End:      entry.End,

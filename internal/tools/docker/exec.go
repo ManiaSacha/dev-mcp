@@ -145,10 +145,3 @@ func bounded(n, fallback, max int, name string) (int, error) {
 	}
 	return n, nil
 }
-
-func clipLine(text string) string {
-	if len(text) <= maxLineBytes {
-		return text
-	}
-	return text[:maxLineBytes] + "…[truncated]"
-}
